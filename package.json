@@ -17,7 +17,6 @@
         "bluebird": "^2.11.0",
         "body-parser": "^1.20.3",
         "caesar-salad": "^2.1.0",
-        "canvas": "^2.11.2",
         "chalk": "^4.1.2",
         "cheerio": "^1.0.0",
         "child_process": "^1.0.2",
