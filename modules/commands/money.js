@@ -4,7 +4,7 @@ module.exports.config = {
     hasPermssion: 0,
     credits: "Quất",
     description: "vừa setmoney vừa check money?",
-    commandCategory: "Người dùng",
+    commandCategory: "Money",
     usages: "/money [ + , - , * , / , ++ , -- , +- , +% , -% ]",
     cooldowns: 0,
     usePrefix: false,

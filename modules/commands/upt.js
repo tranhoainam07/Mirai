@@ -1,11 +1,10 @@
-const moment = require('moment-timezone');
 const os = require('os');
 module.exports = {
     config: {
         name: "uptime",
         credit: "quocduy",
         description: "View detailed system and bot uptime information",
-        commandCategory: "System",
+        commandCategory: "Admin",
         cooldowns: 5
     },
     run: async ({ api, event }) => {

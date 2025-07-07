@@ -34,11 +34,14 @@ global.data = new Object({
     allCurrenciesID: new Array(),
     allThreadID: new Array()
 });
+
 global.utils = require("./utils/func");
 global.config = require('./config.json');
 global.configModule = new Object();
 global.moduleData = new Array();
 global.language = new Object();
+global.anti = resolve(__dirname, "./includes/data/anti/anti.json");
+
 const langFile = (readFileSync(`${__dirname}/languages/${global.config.language || "en"}.lang`, { encoding: 'utf-8' })).split(/\r?\n|\r/);
 const langData = langFile.filter(item => item.indexOf('#') != 0 && item != '');
 for (const item of langData) {

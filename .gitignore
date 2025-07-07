@@ -4,3 +4,5 @@ cookie.txt
 utils/data/fbstate.json
 includes/data.sqlite
 *.txt
+Fca_Database
+fca-config.json

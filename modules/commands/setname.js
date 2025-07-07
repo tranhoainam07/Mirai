@@ -4,7 +4,7 @@ module.exports.config = {
 	hasPermssion: 0,
 	credits: "TrúcCute mod by Niio-team (Cthinh)",
 	description: "Đổi biệt danh trong nhóm của bạn hoặc của người bạn tag",
-	commandCategory: "Nhóm",
+	commandCategory: "Box",
 	usages: "trống/tag/check/all/del/call + name",
 	cooldowns: 5
 }

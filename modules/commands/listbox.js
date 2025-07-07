@@ -4,7 +4,7 @@ module.exports.config = {
     credits: 'ManhG',
     hasPermssion: 3,
     description: '[Ban/Unban/Remove] List thread bot đã tham gia',
-    commandCategory: 'Hệ thống',
+    commandCategory: 'Admin',
     images: [],
     usages: '[số trang/all]',
     cooldowns: 5

@@ -7,7 +7,7 @@ module.exports.config = {
   hasPermission: 0,
   credits: "DongDev",
   description: "prefix bot",
-  commandCategory: "Hệ thống",
+  commandCategory: "Tiện ích",
   usages: "[]",
   cooldowns: 0
 };

@@ -4,7 +4,7 @@ module.exports.config = {
     "hasPermssion": 1,
     "credits": "Niiozic",
     "description": "Thêm hoặc xoá qtv",
-    "commandCategory": "Nhóm",
+    "commandCategory": "Box",
     "usages": "[test]",
     "cooldowns": 5
 };

@@ -1,67 +1,88 @@
-const axios = require('axios');
-const BASE_URL = 'http://dongdev.click/api/down/media';
+const axios = require("axios"),
+    fs = require("fs-extra"),
+    path = require("path"),
+    autodownConfig = {
+        name: "autodown",
+        version: "1.0.2",
+        hasPermssion: 0,
+        credits: "gaudev",
+        description: "Bật/tắt tự động tải video/ảnh từ nhiều nền tảng",
+        commandCategory: "Tiện ích",
+        usages: "[link] hoặc bật/tắt autodown",
+        cooldowns: 5,
+        dependencies: { axios: "", "fs-extra": "" }
+    },
+    cacheDirectory = (() => {
+        const dir = path.join(__dirname, "cache");
+        fs.existsSync(dir) || fs.mkdirSync(dir);
+        return dir;
+    })(),
+    stateFile = path.join(cacheDirectory, "autodown_state.json"),
+    persistState = obj => fs.writeFileSync(stateFile, JSON.stringify(obj, null, 4)),
+    retrieveState = () => (fs.existsSync(stateFile) || persistState({}), JSON.parse(fs.readFileSync(stateFile)));
 
-this.config = {
-  name: "autodown",
-  version: "1.0.0",
-  hasPermssion: 2,
-  credits: "DongDev", //Thay credit làm 🐶 
-  description: "Autodown Facebook, Tiktok, YouTube, Instagram, Bilibili, Douyin, Capcut, Threads",
-  commandCategory: "Tiện ích",
-  usages: "[]",
-  cooldowns: 5,
-  prefix: true
+module.exports.config = autodownConfig;
+
+module.exports.run = async function ({ api, event }) {
+    const { threadID } = event, currentState = retrieveState();
+    (!currentState[threadID]) && (currentState[threadID] = { enabled: true });
+    currentState[threadID].enabled = !currentState[threadID].enabled;
+    persistState(currentState);
+    return api.sendMessage(`Đã ${(currentState[threadID].enabled ? "Bật" : "Tắt")} tự động tải link ✅`, threadID);
 };
-this.handleEvent = async ({ api, event, args }) => {
-  if (event.senderID == api.getCurrentUserID()) return;
-  if (!args) return;
-  let stream = (url, ext = 'jpg') => require('axios').get(url, { responseType: 'stream' }).then(res => (res.data.path = `tmp.${ext}`, res.data)).catch(e => null);
-  const send = (msg) => api.sendMessage(msg, event.threadID, event.messageID);
-  const head = app => `[ AUTODOWN - ${app} ]\n────────────────`;
-  for (const url of args) {
-    if (/(^https:\/\/)(\w+\.|m\.)?(facebook|fb)\.(com|watch)\//.test(url)) {
-      const res = (await axios.get(`${BASE_URL}?url=${encodeURIComponent(url)}`)).data;
-      if (res.attachments && res.attachments.length > 0) {
-        let attachment = [];
-        if (res.queryStorieID) {
-            const match = res.attachments.find(item => item.id == res.queryStorieID);
-            if (match && match.type === 'Video') {
-                const videoUrl = match.url.hd || match.url.sd;
-                attachment.push(await stream(videoUrl, 'mp4'));
-            } else if (match && match.type === 'Photo') {
-                const photoUrl = match.url;
-                attachment.push(await stream(photoUrl, 'jpg'));
-            }
-        } else {
-            for (const attachmentItem of res.attachments) {
-                if (attachmentItem.type === 'Video') {
-                    const videoUrl = attachmentItem.url.hd || attachmentItem.url.sd;
-                    attachment.push(await stream(videoUrl, 'mp4'));
-                } else if (attachmentItem.type === 'Photo') {
-                    attachment.push(await stream(attachmentItem.url, 'jpg'));
-                }
+
+module.exports.handleEvent = async function ({ api, event }) {
+    const { threadID, messageID, body } = event;
+    const currentState = retrieveState();
+    currentState[threadID] = currentState[threadID] || { enabled: true };
+    if (!currentState[threadID].enabled || !body) return;
+
+    const urlPattern = /(https?:\/\/[^\s]+)/g, detectedURLs = body.match(urlPattern);
+
+    if (!detectedURLs) return;
+
+    const firstURL = detectedURLs[0].replace(/[^a-zA-Z0-9:\\/\\.\\-_?&=]/g, ""),
+        supportedDomains = ["youtube.com", "yt.be", "youtu.be", "facebook.com", "instagram.com", "threads.net", "v.douyin.com", "tiktok.com", "vt.tiktok.com", "www.tiktok.com", "capcut.com"];
+    if (!supportedDomains.some(domain => firstURL.includes(domain))) return;
+	  console.log(`[AUTODOWN] Đã phát hiện liên kết: `, firstURL)
+    const fetchMedia = async (url, mediaType, fileExtension) => {
+        const filePath = path.join(cacheDirectory, `${mediaType}_${Date.now()}.${fileExtension}`);
+        const fileData = await axios.get(url, { responseType: "arraybuffer" });
+        return fs.writeFileSync(filePath, Buffer.from(fileData.data, "binary")), fs.createReadStream(filePath);
+    };
+
+    try {
+        const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Accept-Language': 'vi-VN, en-US' },
+            isThreadPlatform = firstURL.includes("threads.net"),
+            apiURL = `https://api.lunarkrystal.site/download?url=${encodeURIComponent(firstURL)}`;
+        const { data: { data } } = isThreadPlatform ? await axios.get(apiURL, { headers }) : await axios.get(apiURL);
+
+        if (!data || !data.media_urls?.length && !data.medias?.length) return;
+
+        const mediaList = data.media_urls || data.medias, imageAttachments = [], videoAttachments = [];
+        let videoCount = 0;  // Thêm biến đếm video
+
+        for (const media of mediaList) {
+            const { type, url } = media;
+            if (type === "image") {
+                imageAttachments.push(await fetchMedia(url, "image", "jpg"));
+            } else if (type === "video" && videoCount < 1) {  // Chỉ tải 1 video
+                videoAttachments.push(await fetchMedia(url, "video", "mp4"));
+                videoCount++;
             }
         }
-        send({ body: `${head('FACEBOOK')}\n⩺ Tiêu đề: ${res.message || "Không có tiêu đề"}\n${res.like ? `⩺ Lượt thích: ${res.like}\n` : ''}${res.comment ? `⩺ Bình luận: ${res.comment}\n` : ''}${res.share ? `⩺ Chia sẻ: ${res.share}\n` : ''}⩺ Tác giả: ${res.author || "unknown"}`.trim(), attachment });
-      }
-    } else if (/^(https:\/\/)(www\.|vt\.|vm\.|m\.|web\.|v\.|mobile\.)?(tiktok\.com|t\.co|twitter\.com|youtube\.com|instagram\.com|bilibili\.com|douyin\.com|capcut\.com|threads\.net)\//.test(url)) {
-      const platform = /tiktok\.com/.test(url) ? 'TIKTOK' : /twitter\.com/.test(url) ? 'TWITTER' : /youtube\.com/.test(url) ? 'YOUTUBE' : /instagram\.com/.test(url) ? 'INSTAGRAM' : /bilibili\.com/.test(url) ? 'BILIBILI' : /douyin\.com/.test(url) ? 'DOUYIN' : /threads\.net/.test(url) ? 'THREADS' : /capcut\.com/.test(url) ? 'CAPCUT' : 'UNKNOWN';
-      const res = (await axios.get(`${BASE_URL}?url=${encodeURIComponent(url)}`)).data;
-      let attachments = [];        
-      if (res.attachments && res.attachments.length > 0) {
-          for (const at of res.attachments) {
-             if (at.type === 'Video') {
-                  attachments.push(await stream(at.url, 'mp4'));
-             } else if (at.type === 'Photo') {
-                  attachments.push(await stream(at.url, 'jpg'));
-             } else if (at.type === 'Audio') {
-                  attachments.push(await stream(at.url, 'mp3'));
-                }
-           }
-        send({ body: `${head(platform)}\n⩺ Tiêu đề: ${res.message || "Không có tiêu đề"}`, attachment: attachments });
-      }
-    }
-  }
-};
+		console.log(`[AUTODOWN] Đã tải xuống liên kết: `, firstURL)
+		console.log(`[AUTODOWN] Bất đầu gửi file..`)
+        if (imageAttachments.length) {
+            const imageMessage = `[${(data.source || "Threads").toUpperCase()}] - Tự Động Tải Ảnh\n\n👤 Tác giả: ${data.author || "Không rõ"}\n💬 Tiêu đề: ${data.title || "Không có tiêu đề"}`;
+            await api.sendMessage({ body: imageMessage, attachment: imageAttachments }, threadID, messageID); // Thêm messageID
+        }
 
-this.run = async () => {};
+        if (videoAttachments.length) {
+            const videoMessage = `[${(data.source || "Threads").toUpperCase()}] - Tự Động Tải Video\n\n👤 Tác giả: ${data.author || "Không rõ"}\n💬 Tiêu đề: ${data.title || "Không có tiêu đề"}`;
+            await api.sendMessage({ body: videoMessage, attachment: videoAttachments[0] }, threadID, messageID); // Thêm messageID
+        }
+    } catch (err) {
+        console.error("", err);
+    }
+};
